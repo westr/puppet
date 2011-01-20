@@ -23,19 +23,11 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
             :pkgdel   => "/usr/sbin/pkg_delete",
             :pkgver   => "/usr/sbin/pkg_version"
 
-  # Provider/Package Methods that need to be built. (+ = completed)
-  # info types:
-  # ! instances - build list of hashs of all installed packages, return list
-  # ! query - build hash of specified package details, return hash
-  #   latest - find latest version of software available, return string
-  # action types:
-  # ! install - install a package
-  # ! uninstall - uninstall a package
-  # + update - update an installed software package - only
-  #   purge - purge software including all configuration/etc.
 
-  ##### Instances command - builds list of installed packages
-      # fields to populate:
+  ##### Instances command/method 
+      # Parameters needed:
+      #   -none-
+      # Parameters returned
       #   :ensure       - package version
       #   :name         - package name (internal name to Freebsd ie: port origin)
       #   :description  - package shortname (what it's commonly called)
@@ -85,12 +77,13 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
 
 
-  ##### Installation Command
-      # Fields required/used:
+  ##### Installation Command/method
+      # Parameter needed:
       #   :name     = package origin to install
-      #   :ensure   = version of the package to install (if a choice)
+      #   :ensure   = version of the package to install (if a choice), or whatever
       #   :source   = the package file/URL
-      #   
+      # Parameters returned:
+      #   -none-
 
   def install
     Puppet.debug "fbsd.install : Installing Package (#{@resource[:name]}"
@@ -113,11 +106,12 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
 
 
-  ##### Query Command
+  ##### Query Command/Method
+      # Parameters needed:
+      #   :name         = port origin
       # Fields required/used:
-      #   :name
-      #   :ensure
-      #   :description
+      #   :ensure       = port version
+      #   :description  = shortname
 
   def query
     Puppet.debug "fbsd.query : query made on #{@resource[:name]}"
@@ -152,8 +146,10 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
     
   ##### uninstall command/method
-      # Fields required/used
+      # Parameters needed:
       #   :name
+      # Parameters returned:
+      #   -none-
 
   def uninstall
     Puppet.debug "fbsd.uninstall : called for #{@resource[:name]}"
@@ -186,10 +182,11 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
 
   ##### update command/method
-      # Fields required/used
+      # Parameters needed:
       #   :name
       #   :source
-      #   
+      # Parameters/Values returned:
+      #   -none-
 
   def update
     Puppet.debug "fbsd.update : called for #{@resource[:name]}"
@@ -204,10 +201,11 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
 
   ##### latest command/method
-      # Fields required/used
+      # Parameters needed:
       #   :name
       #   :source
-      #
+      # Parameters/Value returned:
+      #   :ensure   = returns version # of source package.
 
   def latest
     Puppet.debug "fbsd.latest : returning source version"
