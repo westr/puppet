@@ -15,9 +15,6 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
     to the full package origin (eg: ftp/wget for wget application).  This provider
     does not auto-install dependencies, nor error if they're not found on install."
 
-  # Global variable
-  packagename = "fbsd"
-
   # Operating restrictions/Suitability requirements
   # defaultfor :operatingsystem => :freebsd   # uncomment when approved by someone important
   confine   :operatingsystem => :freebsd
@@ -28,13 +25,13 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
   # Provider/Package Methods that need to be built. (+ = completed)
   # info types:
-  # + instances - build list of hashs of all installed packages, return list
-  # + query - build hash of specified package details, return hash
+  # ! instances - build list of hashs of all installed packages, return list
+  # ! query - build hash of specified package details, return hash
   #   latest - find latest version of software available, return string
   # action types:
-  # + install - install a package
-  # + uninstall - uninstall a package
-  # + update - update an installed software package
+  # ! install - install a package
+  # ! uninstall - uninstall a package
+  # + update - update an installed software package - only
   #   purge - purge software including all configuration/etc.
 
   ##### Instances command - builds list of installed packages
@@ -44,7 +41,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
       #   :description  - package shortname (what it's commonly called)
 
   def self.instances
-    Puppet.debug "#{packagename}.instances : Building installed package list"
+    Puppet.debug "fbsd.instances : Building installed package list"
 
     # Define variables
     packages = []
@@ -77,7 +74,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
         packages << new(hash)
       else
         # Line didn't match regex - skip
-        Puppet.debug "#{packagename}.instances : skipped dataline #{dataline}"
+        Puppet.debug "fbsd.instances : skipped dataline #{dataline}"
       end
     } # output.split
 
@@ -96,7 +93,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
       #   
 
   def install
-    Puppet.debug "#{packagename}.install : Installing Package (#{@resource[:name]}"
+    Puppet.debug "fbsd.install : Installing Package (#{@resource[:name]}"
 
     # Force that a .tbz file is referenced, and not something else which can go weird.
     if @resource[:source] =~ /\.tbz$/
@@ -119,20 +116,38 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
   ##### Query Command
       # Fields required/used:
       #   :name
+      #   :ensure
+      #   :description
 
   def query
-    Puppet.debug "#{packagename}.query : query made on #{@resource[:name]}"
+    Puppet.debug "fbsd.query : query made on #{@resource[:name]}"
 
-    # Cheat and just use the pre-made listing from the instances method 
-    self.class.instances.each do |provider|
-      if provider.name == @resource.name
-        return provider.properties
-      end   # if
-    end   # loop
+    hash = Hash.new
+
+    # Call pkginfo on the source package (maybe updated!)
+    cmdline = ["-oQ", @resource[:name] ]
+    begin
+      output = pkginfo(*cmdline)
+    rescue Puppet::ExecutionFailure
+      raise Puppet::Error.new(output)
+      return nil
+    end
+
+    if output =~ /^(\S+)-([^-\s]+)$/
+      hash.clear
+      hash[:ensure]       = $2
+      hash[:description]  = $1
+      hash[:name]         = @resource[:name]
+
+      return hash
+    else
+      # Didn't parse correctly, FIXME: Can be more than one package installed (an error)
+      Puppet.debug "fbsd.query : ERROR : output can't be parsed (#{output})"
+      return nil
+    end   # if
   
-    # Return 'nil' since nothing found
-    nil
-
+    # Return 'nil' since we shouldn't get here.
+    return nil
   end   # def
 
     
@@ -141,12 +156,12 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
       #   :name
 
   def uninstall
-    Puppet.debug "#{packagename}.uninstall : called for #{@resource[:name]}"
+    Puppet.debug "fbsd.uninstall : called for #{@resource[:name]}"
 
     # Get full package name from port origin to uninstall with
     cmdline = ["-qO", @resource[:name]]
     begin
-      output = portinfo(*cmdline)
+      output = pkginfo(*cmdline)
     rescue Puppet::ExecutionFailure
       raise Puppet::Error.new(output)
     end
@@ -154,7 +169,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
     output.split("\n").each { |data|
       if data =~ /^(\S+)$/
         # uninstall the package
-        Puppet.debug "#{packagename}.uninstall : removing #{data}"
+        Puppet.debug "fbsd.uninstall : removing #{data}"
         cmdline = [ "--verbose", $1 ]
         begin
           output = pkgdel(*cmdline)
@@ -163,7 +178,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
           return nil
         end   # begin
       else
-        Puppet.debug "#{packagename}.uninstall : invalid package, skipping : #{$1} : #{data}"
+        Puppet.debug "fbsd.uninstall : invalid package, skipping : #{$1} : #{data}"
       end   # if
     }   # each
 
@@ -177,7 +192,7 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
       #   
 
   def update
-    Puppet.debug "#{packagename}.update : called for #{@resource[:name]}"
+    Puppet.debug "fbsd.update : called for #{@resource[:name]}"
 
     # uninstall the old package
     self.uninstall
@@ -188,6 +203,35 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
   end   # def
 
 
+  ##### latest command/method
+      # Fields required/used
+      #   :name
+      #   :source
+      #
+
+  def latest
+    Puppet.debug "fbsd.latest : returning source version"
+
+    sourcever = nil
+
+    # Call pkginfo on the source package (maybe updated!)
+    cmdline = ["-qf", @resource[:source] ]
+    begin
+      output = pkginfo(*cmdline)
+    rescue Puppet::ExecutionFailure
+      raise Puppet::Error.new(output)
+      return nil
+    end
+
+    # cycle through all the packfile output and get the @name variable
+    output.split("\n").each { |line|
+      if line =~ /^@name \S+-([^-\s]+)$/
+        sourcever = $1
+      end   # if
+    }   # each
+
+    return sourcever
+  end   #   def
 
 end   # package/provider
 
