@@ -107,6 +107,12 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
   def install
     debugline "Installing Package (#{@resource[:name]}) from (#{@resource[:source]})"
 
+    # Force a port origin format (catagory/shortname) for the :name
+    if @resource[:name].split('/').count != 2
+      Puppet.err "#{@resource} Package Name(#{@resource[:name]}) is not in portorigin (catagory/shortname) format"
+      return nil
+    end
+
     # Force that a .tbz file is referenced, and not something else which can go weird.
     if @resource[:source] =~ /\.tbz$/
 
@@ -150,6 +156,12 @@ Puppet::Type.type(:package).provide :fbsd, :parent => Puppet::Provider::Package 
 
   def query
     debugline "Query made on (#{@resource[:name]})"
+
+    # Force a port origin format (catagory/shortname) for the :name
+    if @resource[:name].split('/').count != 2
+      Puppet.err "#{@resource} Package Name(#{@resource[:name]}) is not in portorigin (catagory/shortname) format"
+      return nil
+    end
 
     hash = Hash.new
 
