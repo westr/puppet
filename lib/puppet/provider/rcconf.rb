@@ -1,5 +1,6 @@
 
 class Puppet::Provider::Rcconf < Puppet::Provider
+
   # Prefetch method 
   #  - called with hash (which is a listing of keys (rcconf names) to value (rcconf config hash))
   #   - hash format  { "keyname" => confighash, .. }

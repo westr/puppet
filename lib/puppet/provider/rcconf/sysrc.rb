@@ -92,7 +92,7 @@ Puppet::Type.type(:rcconf).provide :sysrc, :parent => Puppet::Provider::Rcconf d
     # Just call self.value since it will create the key (:value is defaulted to :nil)
     Puppet.debug("sysrc.create - called")
 
-    self.value(@resource[:value])
+    self.value = (@resource[:value])
  
     Puppet.debug("sysrc.create - completed")
   end   # def enable
